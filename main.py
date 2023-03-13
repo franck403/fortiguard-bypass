@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, make_response
 import requests
 
 
@@ -7,6 +7,13 @@ app = Flask('app')
 @app.route('/')
 def home():
     return 'Hi from flask'
+
+@app.route('/cookie/<path:path>')
+def home(path):
+    resp = make_response(render_template('readcookie.html'))
+    resp.set_cookie('userID', user)
+    return 'cookie set to : ' + path
+
 
 @app.route('/<path:path>',methods = ['POST', 'GET'])
 def fetch(path):
