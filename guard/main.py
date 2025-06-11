@@ -1,28 +1,47 @@
 from flask import Flask, request, make_response
 import requests
+import re
 
+app = Flask(__name__)
 
-app = Flask('app')
+# Regex to detect http(s) or domain-only URLs
+URL_REGEX = re.compile(
+    r'\b(?:(?:https?:\/\/)?(?:www\.)?)?(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}'
+    r'(?::\d+)?(?:\/[^\s]*)?\b'
+)
+
+# Base URL of your Flask app (adjust if hosted elsewhere)
+FLASK_BASE_URL = 'http://localhost:5000/'
 
 @app.route('/')
 def home():
-    return 'Hi from flask'
+    return 'Hi from Flask'
 
 @app.route('/cookie/<path:path>')
-def home(path):
-    resp = make_response(render_template('readcookie.html'))
-    resp.set_cookie('userID', user)
-    return 'cookie set to : ' + path
+def set_cookie(path):
+    resp = make_response(f'Cookie set to: {path}')
+    resp.set_cookie('url', path)
+    return resp
 
-
-@app.route('/<path:path>',methods = ['POST', 'GET'])
+@app.route('/<path:path>', methods=['GET', 'POST'])
 def fetch(path):
     if request.method == 'GET':
+        # Get the cookie named 'url'
         url = request.cookies.get('url')
-        requests.get(url)
-        data = '''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>html, body {margin: 0;padding: 0;height: 100%;overflow: hidden;}iframe {display: block;width: 100%;height: 100%;border: none;}img {position: absolute;top: 0;right: 0;}</style><script src="https://unpkg.com/@ungap/custom-elements-builtin"></script><script src="https://franck403.github.io/x-frame-bypass/iframe.hitsab.js" type="module"></script></head><body><iframe is="x-frame-bypass" src="https://''' + path + '''"></iframe></body></html>'''
-    else:
-        data = "not supported for now"
-    return data
+        if url:
+            # Apply regex to find all matching URLs
+            matches = URL_REGEX.findall(url)
 
-app.run()
+            # Replace each match with Flask-proxied URL
+            def replace_with_flask_proxy(match):
+                return FLASK_BASE_URL + match
+
+            rewritten = URL_REGEX.sub(lambda m: replace_with_flask_proxy(m.group(0)), url)
+            return f"Original: {url}\nRewritten: {rewritten}"
+        else:
+            return "No URL found in cookie"
+    else:
+        return "POST method not supported"
+
+if __name__ == '__main__':
+    app.run(debug=True)
